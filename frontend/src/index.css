@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+body {
+  @apply font-body bg-templeMaroon text-templeCream antialiased;
+  margin: 0;
+  overflow-x: hidden;
+  background-image: linear-gradient(160deg, #4b1717 0%, #5b1e1e 50%, #331111 100%);
+}
+
+.temple-pattern {
+  background-image:
+    radial-gradient(circle at 20% 15%, rgba(212, 175, 55, 0.1), transparent 40%),
+    radial-gradient(circle at 80% 85%, rgba(230, 211, 179, 0.08), transparent 42%);
+}
+
+.temple-card {
+  @apply border border-templeGold/30 bg-templeBrown/45 backdrop-blur-md rounded-2xl shadow-lg;
+}
+
+.temple-input {
+  @apply w-full rounded-lg border border-templeGold/35 bg-templeCream/95 px-3 py-2 text-templeBrown outline-none focus:border-templeGold;
+}
+
+.temple-button {
+  @apply rounded-lg bg-templeGold px-4 py-2 text-templeBrown font-semibold hover:brightness-110 transition;
+}
