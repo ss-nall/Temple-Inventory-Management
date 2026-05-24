@@ -15,6 +15,7 @@ const LoginPage = () => {
   const [googleStatus, setGoogleStatus] = useState("idle");
   const [googleError, setGoogleError] = useState("");
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const currentOrigin = window.location.origin;
 
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -184,6 +185,12 @@ const LoginPage = () => {
         <div className="mt-4 border-t border-templeGold/20 pt-4">
           <p className="mb-2 text-xs text-templeCream/80">Sign in with Google (works for both admin and normal users)</p>
           <div ref={googleBtnRef} className="w-full max-w-full overflow-hidden" />
+          <p className="mt-2 text-xs text-templeCream/70 break-all">
+            Current site origin: <span className="text-templeGold">{currentOrigin}</span>
+          </p>
+          <p className="mt-1 text-xs text-templeCream/70">
+            Add this exact origin in Google Cloud Console under OAuth Client → Authorized JavaScript origins.
+          </p>
           {googleStatus === "missing_client_id" && (
             <p className="mt-2 text-xs text-red-300">Google login unavailable: missing VITE_GOOGLE_CLIENT_ID in frontend/.env</p>
           )}
