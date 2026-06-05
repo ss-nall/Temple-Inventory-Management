@@ -5,7 +5,8 @@ const InventoryActionForm = ({
   onChange,
   onSubmit,
   roleFieldName,
-  roleFieldLabel
+  roleFieldLabel,
+  children
 }) => (
   <form onSubmit={onSubmit} className="temple-card space-y-3 p-4">
     <h3 className="font-heading text-lg text-templeGold">{title}</h3>
@@ -48,6 +49,7 @@ const InventoryActionForm = ({
       Date
       <input type="date" className="temple-input mt-1" value={values.date} onChange={(e) => onChange("date", e.target.value)} />
     </label>
+    {children}
     <button type="submit" className="temple-button">
       {submitLabel}
     </button>

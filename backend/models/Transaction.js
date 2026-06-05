@@ -26,7 +26,18 @@ const transactionSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
-    }
+    },
+    status: {
+      type: String,
+      enum: ["PENDING", "CONFIRMED"],
+      default: "CONFIRMED"
+    },
+    confirmedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    confirmedAt: Date,
+    recipientEmail: String
   },
   { timestamps: true }
 );

@@ -2,11 +2,16 @@ import mongoose from "mongoose";
 import Transaction from "../models/Transaction.js";
 import { getNextKalyanamDate } from "../utils/date.js";
 import { getOrCreateInventory } from "../utils/inventory.js";
+import { sendStockConfirmationEmail } from "../utils/email.js";
+import { getAdminEmails } from "../utils/admins.js";
 
 const safeNumber = (value) => Math.max(0, Number(value) || 0);
 const signedNumber = (value) => Number(value) || 0;
 
 const applyTransaction = (totals, tx) => {
+  if (tx.status === "PENDING") {
+    return;
+  }
   const type = tx.type;
   const sarees = type === "ADJUSTMENT" ? signedNumber(tx.sarees) : safeNumber(tx.sarees);
   const panchas = type === "ADJUSTMENT" ? signedNumber(tx.panchas) : safeNumber(tx.panchas);
@@ -69,6 +74,9 @@ export const getDashboardMetrics = async (_req, res) => {
 
   const totals = monthTx.reduce(
     (acc, tx) => {
+      if (tx.status === "PENDING") {
+        return acc;
+      }
       if (tx.type === "ADD") {
         acc.addedSarees += tx.sarees;
         acc.addedPanchas += tx.panchas;
@@ -105,17 +113,11 @@ export const getDashboardMetrics = async (_req, res) => {
 export const addStock = async (req, res) => {
   const sarees = safeNumber(req.body.sarees);
   const panchas = safeNumber(req.body.panchas);
-  const { donorName = "", notes = "", date } = req.body;
+  const { donorName = "", notes = "", date, recipientEmail } = req.body;
 
   if (sarees === 0 && panchas === 0) {
     return res.status(400).json({ message: "Provide sarees or panchas quantity greater than 0." });
   }
-
-  const inventory = await getOrCreateInventory();
-  inventory.sarees += sarees;
-  inventory.panchas += panchas;
-  inventory.updatedAt = new Date();
-  await inventory.save();
 
   const transaction = await Transaction.create({
     type: "ADD",
@@ -123,12 +125,16 @@ export const addStock = async (req, res) => {
     panchas,
     donorName,
     notes,
+    status: "PENDING",
+    recipientEmail,
     date: date ? new Date(date) : new Date(),
     createdBy: req.user?._id
   });
 
+  const inventory = await getOrCreateInventory();
+
   return res.status(201).json({
-    message: "Stock added successfully.",
+    message: "Stock receipt recorded, pending confirmation.",
     inventory,
     transaction
   });
@@ -395,4 +401,50 @@ export const clearAllHistory = async (req, res) => {
     message: "All transaction history cleared successfully.",
     inventory
   });
+};
+
+export const confirmStock = async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid transaction ID." });
+  }
+
+  const transaction = await Transaction.findById(id).populate("createdBy", "username email");
+  if (!transaction) {
+    return res.status(404).json({ message: "Transaction not found." });
+  }
+
+  if (transaction.type !== "ADD") {
+    return res.status(400).json({ message: "Only stock addition (ADD) transactions can be confirmed." });
+  }
+
+  if (transaction.status === "CONFIRMED") {
+    return res.status(400).json({ message: "This transaction is already confirmed." });
+  }
+
+  transaction.status = "CONFIRMED";
+  transaction.confirmedBy = req.user?._id;
+  transaction.confirmedAt = new Date();
+  await transaction.save();
+
+  // Recalculate inventory totals based on the confirmed transaction
+  const inventory = await recalculateInventoryFromHistory();
+
+  // Send confirmation email
+  await sendStockConfirmationEmail(transaction, req.user);
+
+  return res.json({
+    message: "Stock confirmation successful.",
+    transaction,
+    inventory
+  });
+};
+
+export const getAdminList = async (req, res) => {
+  try {
+    const adminEmails = getAdminEmails();
+    return res.json(adminEmails);
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to retrieve admin list." });
+  }
 };

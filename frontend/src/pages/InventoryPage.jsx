@@ -9,6 +9,7 @@ const initialAdd = {
   panchas: 0,
   donorName: "",
   notes: "",
+  recipientEmail: "",
   date: new Date().toISOString().slice(0, 10)
 };
 
@@ -47,16 +48,28 @@ const InventoryPage = () => {
   const [resetForm, setResetForm] = useState(initialReset);
   const [clearForm, setClearForm] = useState(initialClear);
   const [editForm, setEditForm] = useState(null);
+  const [adminList, setAdminList] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const loadData = async () => {
-    const [inventoryRes, historyRes] = await Promise.all([
+    const promises = [
       api.get("/inventory"),
       api.get("/inventory/history?limit=20")
-    ]);
-    setInventory(inventoryRes.data);
-    setHistory(historyRes.data.items);
+    ];
+    if (isAdmin) {
+      promises.push(api.get("/inventory/admins"));
+    }
+    try {
+      const results = await Promise.all(promises);
+      setInventory(results[0].data);
+      setHistory(results[1].data.items);
+      if (isAdmin && results[2]) {
+        setAdminList(results[2].data);
+      }
+    } catch (err) {
+      console.error("Error loading inventory data:", err);
+    }
   };
 
   useEffect(() => {
@@ -71,6 +84,10 @@ const InventoryPage = () => {
 
   const handleAdd = async (event) => {
     event.preventDefault();
+    if (!addForm.recipientEmail) {
+      setError("Please select an admin to notify.");
+      return;
+    }
     setError("");
     setMessage("");
     try {
@@ -79,7 +96,7 @@ const InventoryPage = () => {
         sarees: Number(addForm.sarees),
         panchas: Number(addForm.panchas)
       });
-      setMessage("Stock added successfully.");
+      setMessage("Stock receipt recorded, pending confirmation.");
       setAddForm(initialAdd);
       await loadData();
     } catch (apiError) {
@@ -215,6 +232,22 @@ const InventoryPage = () => {
     }
   };
 
+  const handleConfirmStock = async (item) => {
+    const confirmed = window.confirm(
+      `Confirm receipt of ${item.sarees} sarees and ${item.panchas} panchas from ${item.donorName || "unknown source"}?`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    try {
+      await api.post(`/inventory/history/${item._id}/confirm`);
+      setMessage("Stock receipt confirmed successfully. Notification email sent to admins.");
+      await loadData();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || "Unable to confirm stock receipt.");
+    }
+  };
+
   return (
     <section className="space-y-5">
       <div className="temple-card grid gap-4 p-4 sm:grid-cols-2">
@@ -242,7 +275,24 @@ const InventoryPage = () => {
               onSubmit={handleAdd}
               roleFieldName="donorName"
               roleFieldLabel="Donor/Source Name"
-            />
+            >
+              <label className="text-sm">
+                Notify Admin (Target for confirmation email)
+                <select
+                  className="temple-input mt-1"
+                  value={addForm.recipientEmail}
+                  onChange={(e) => onAddChange("recipientEmail", e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Admin --</option>
+                  {adminList.map((email) => (
+                    <option key={email} value={email}>
+                      {email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </InventoryActionForm>
             <InventoryActionForm
               title="Distribute Stock"
               submitLabel="Distribute Stock"
@@ -351,7 +401,13 @@ const InventoryPage = () => {
             </button>
           )}
         </div>
-        <TransactionTable items={history} canManage={isAdmin} onEdit={openEdit} onDelete={handleDeleteLog} />
+        <TransactionTable
+          items={history}
+          canManage={isAdmin}
+          onEdit={openEdit}
+          onDelete={handleDeleteLog}
+          onConfirm={handleConfirmStock}
+        />
 
         {isAdmin && editForm && (
           <form onSubmit={handleEditSave} className="temple-card mt-4 space-y-3 p-4">

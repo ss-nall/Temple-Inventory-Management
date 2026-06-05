@@ -15,6 +15,9 @@ const parseMonthYear = (monthParam, yearParam) => {
 const sumTransactions = (transactions) =>
   transactions.reduce(
     (acc, tx) => {
+      if (tx.status === "PENDING") {
+        return acc;
+      }
       if (tx.type === "ADD") {
         acc.addedSarees += tx.sarees;
         acc.addedPanchas += tx.panchas;
